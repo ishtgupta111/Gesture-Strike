@@ -11,7 +11,7 @@ const CameraFeed: React.FC<CameraFeedProps> = ({ onHandsDetected }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const handsRef = useRef<any>(null);
-  const requestRef = useRef<number>();
+  const requestRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     // Initialize MediaPipe Hands

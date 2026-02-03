@@ -48,7 +48,7 @@ const GameArena: React.FC<GameArenaProps> = ({
   const [isMuted, setIsMuted] = useState(false);
   const [bassFactor, setBassFactor] = useState(0);
   
-  const requestRef = useRef<number>();
+  const requestRef = useRef<number | undefined>(undefined);
   const lastTimeRef = useRef<number>(0);
   const spawnTimerRef = useRef<number>(0);
   const objectsRef = useRef<GameObject[]>([]);

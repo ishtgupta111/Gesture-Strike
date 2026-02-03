@@ -1,0 +1,10 @@
+
+# Frontend Dependencies (Managed via npm/package.json)
+# To install, use: npm install
+
+react>=19.0.0
+react-dom>=19.0.0
+@google/genai>=1.39.0
+lucide-react>=0.468.0
+typescript>=5.0.0
+tailwindcss>=3.4.0

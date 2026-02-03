@@ -30,7 +30,9 @@ import {
   Trash2,
   Home,
   ExternalLink,
-  ShieldCheck
+  ShieldCheck,
+  Video,
+  Loader2
 } from 'lucide-react';
 
 const PROFILES_KEY = 'gesture_striker_profiles';
@@ -103,6 +105,12 @@ const App: React.FC = () => {
   const [leftHand, setLeftHand] = useState<HandPosition>({ x: 0.5, y: 0.8, active: false });
   const [rightHand, setRightHand] = useState<HandPosition>({ x: 0.5, y: 0.8, active: false });
   const [availableProfiles, setAvailableProfiles] = useState<{name: string, data: ProfileData}[]>([]);
+  
+  // Reward/Revive states
+  const [isReviveAvailable, setIsReviveAvailable] = useState(true);
+  const [isReviving, setIsReviving] = useState(false);
+  const [startingLives, setStartingLives] = useState(3);
+  const [startingScore, setStartingScore] = useState(0);
 
   const ActiveAvatarIcon = useMemo(() => {
     const option = AVATAR_OPTIONS.find(a => a.id === userIcon);
@@ -114,7 +122,6 @@ const App: React.FC = () => {
     return option ? option.Icon : User;
   };
 
-  // Load profile helper
   const loadProfile = useCallback((name: string) => {
     if (!name.trim()) return;
     const profiles: UserProfiles = JSON.parse(localStorage.getItem(PROFILES_KEY) || '{}');
@@ -142,7 +149,6 @@ const App: React.FC = () => {
     setAvailableProfiles(list);
   }, []);
 
-  // Initialize data on mount
   useEffect(() => {
     const lastUser = localStorage.getItem(LAST_USER_KEY);
     refreshProfileList();
@@ -215,6 +221,9 @@ const App: React.FC = () => {
     const activeName = userName.trim() || DEFAULT_NAME;
     loadProfile(activeName);
     setIsNewRecord(false);
+    setIsReviveAvailable(true);
+    setStartingLives(3);
+    setStartingScore(0);
     setGameState('loading');
     
     try {
@@ -226,6 +235,21 @@ const App: React.FC = () => {
       console.error("Game start failed:", error);
       setGameState('landing');
     }
+  };
+
+  const handleRevive = () => {
+    setIsReviving(true);
+    soundService.playBlip(false);
+    
+    // Simulate watching a 3-second ad
+    setTimeout(() => {
+      setIsReviving(false);
+      setIsReviveAvailable(false);
+      setStartingLives(1);
+      setStartingScore(finalScore);
+      setGameState('playing');
+      soundService.playStart();
+    }, 3000);
   };
 
   const handleHandsUpdate = useCallback((left: HandPosition, right: HandPosition) => {
@@ -282,6 +306,34 @@ const App: React.FC = () => {
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-rose-600 rounded-full blur-[120px]" />
       </div>
 
+      {/* Revive Ad Overlay */}
+      {isReviving && (
+        <div className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center p-12 text-center animate-in fade-in duration-300">
+           <div className="max-w-md w-full">
+              <div className="relative w-32 h-32 mx-auto mb-10">
+                <div className="absolute inset-0 border-8 border-blue-500/20 rounded-full" />
+                <div className="absolute inset-0 border-8 border-blue-500 rounded-full border-t-transparent animate-spin" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                   <Video className="w-12 h-12 text-blue-400" />
+                </div>
+              </div>
+              <h2 className="text-3xl font-black text-white mb-4 uppercase tracking-tighter">Watching Mission Log...</h2>
+              <p className="text-slate-400 font-medium leading-relaxed">Wait while we calibrate your strikers for another attempt. Extra life incoming!</p>
+              
+              <div className="mt-12 w-full h-1 bg-white/10 rounded-full overflow-hidden">
+                <div className="h-full bg-blue-500 animate-[progress_3s_linear]" />
+              </div>
+              <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.3em] mt-4">ADVERTISEMENT CONTENT</p>
+           </div>
+           <style>{`
+             @keyframes progress {
+               from { width: 0%; }
+               to { width: 100%; }
+             }
+           `}</style>
+        </div>
+      )}
+
       {gameState === 'landing' && (
         <div className="flex-1 flex flex-col items-center justify-center z-10 p-6 text-center overflow-y-auto custom-scrollbar">
           <div className="mb-8 p-10 bg-white/5 rounded-[3rem] backdrop-blur-2xl border border-white/10 shadow-2xl relative w-full max-w-xl animate-in fade-in zoom-in duration-500">
@@ -291,7 +343,6 @@ const App: React.FC = () => {
             </h1>
 
             {isEditingProfile ? (
-              /* Striker Setup Form */
               <form onSubmit={handleProfileSubmit} className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
                 <div className="text-left">
                   <label className="block text-[10px] font-black uppercase text-slate-500 tracking-[0.2em] mb-3 px-1">
@@ -359,7 +410,6 @@ const App: React.FC = () => {
                 </div>
               </form>
             ) : (
-              /* Active Profile Card */
               <div className="space-y-8 animate-in slide-in-from-top-4 duration-500">
                 <div className="relative group">
                   <div className="absolute -inset-1 bg-gradient-to-r from-blue-500 to-rose-500 rounded-[2.5rem] blur opacity-25 group-hover:opacity-40 transition duration-1000 group-hover:duration-200 animate-pulse"></div>
@@ -426,7 +476,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Profile Selector Modal */}
       {showProfileSelector && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-black/70 backdrop-blur-xl animate-in fade-in duration-300" onClick={() => setShowProfileSelector(false)}>
           <div className="bg-slate-900 border border-white/10 rounded-[3rem] w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in duration-300" onClick={e => e.stopPropagation()}>
@@ -505,7 +554,6 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* Instructions Modal */}
       {isInstructionsOpen && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md">
           <div className="bg-slate-900 border border-white/10 rounded-[2.5rem] w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl animate-in fade-in zoom-in duration-300">
@@ -572,6 +620,8 @@ const App: React.FC = () => {
           leftHand={leftHand} 
           rightHand={rightHand} 
           onGameOver={handleGameOver}
+          initialLives={startingLives}
+          initialScore={startingScore}
         />
       )}
 
@@ -607,6 +657,17 @@ const App: React.FC = () => {
             </div>
 
             <div className="flex flex-col gap-3">
+              {isReviveAvailable && (
+                <button
+                  onClick={handleRevive}
+                  className="w-full group relative flex items-center justify-center gap-3 bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-8 py-5 rounded-2xl font-black text-xl transition-all hover:scale-105 active:scale-95 shadow-xl shadow-emerald-900/40 border border-emerald-400/30 mb-2 overflow-hidden"
+                >
+                  <div className="absolute inset-0 bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-1000 skew-x-12" />
+                  <Video className="w-6 h-6" />
+                  WATCH AD TO REVIVE (+1 💖)
+                </button>
+              )}
+              
               <button
                 onClick={(e) => {
                     e.stopPropagation();

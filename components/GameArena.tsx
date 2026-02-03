@@ -4,17 +4,46 @@ import { GameRule, GameObject, HandPosition } from '../types';
 import { Heart, Shield, Zap, Pause, Play, Volume2, VolumeX } from 'lucide-react';
 import { soundService } from '../services/soundService';
 
+interface Particle {
+  id: number;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  life: number;
+  color: string;
+  size: number;
+}
+
+interface TrailNode {
+  x: number;
+  y: number;
+  active: boolean;
+}
+
 interface GameArenaProps {
   rule: GameRule;
   leftHand: HandPosition;
   rightHand: HandPosition;
   onGameOver: (score: number) => void;
+  initialLives?: number;
+  initialScore?: number;
 }
 
-const GameArena: React.FC<GameArenaProps> = ({ rule, leftHand, rightHand, onGameOver }) => {
-  const [score, setScore] = useState(0);
-  const [lives, setLives] = useState(3);
+const GameArena: React.FC<GameArenaProps> = ({ 
+  rule, 
+  leftHand, 
+  rightHand, 
+  onGameOver,
+  initialLives = 3,
+  initialScore = 0
+}) => {
+  const [score, setScore] = useState(initialScore);
+  const [lives, setLives] = useState(initialLives);
   const [objects, setObjects] = useState<GameObject[]>([]);
+  const [particles, setParticles] = useState<Particle[]>([]);
+  const [leftTrail, setLeftTrail] = useState<TrailNode[]>([]);
+  const [rightTrail, setRightTrail] = useState<TrailNode[]>([]);
   const [isPaused, setIsPaused] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [bassFactor, setBassFactor] = useState(0);
@@ -23,8 +52,9 @@ const GameArena: React.FC<GameArenaProps> = ({ rule, leftHand, rightHand, onGame
   const lastTimeRef = useRef<number>(0);
   const spawnTimerRef = useRef<number>(0);
   const objectsRef = useRef<GameObject[]>([]);
-  const scoreRef = useRef(0);
-  const lastScoreIntensityRef = useRef(0);
+  const particlesRef = useRef<Particle[]>([]);
+  const scoreRef = useRef(initialScore);
+  const lastScoreIntensityRef = useRef(initialScore);
 
   const laneWidth = window.innerWidth / 2;
 
@@ -41,6 +71,26 @@ const GameArena: React.FC<GameArenaProps> = ({ rule, leftHand, rightHand, onGame
   const toggleMute = () => {
     const newMutedState = soundService.toggleMusicMute();
     setIsMuted(newMutedState);
+  };
+
+  const spawnParticles = (x: number, y: number, color: string) => {
+    const count = 12;
+    const newParticles: Particle[] = [];
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = Math.random() * 4 + 2;
+      newParticles.push({
+        id: Math.random() + Date.now(),
+        x,
+        y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        life: 1.0,
+        color,
+        size: Math.random() * 6 + 4
+      });
+    }
+    particlesRef.current = [...particlesRef.current, ...newParticles];
   };
 
   const spawnObject = useCallback(() => {
@@ -67,7 +117,6 @@ const GameArena: React.FC<GameArenaProps> = ({ rule, leftHand, rightHand, onGame
   const updateVisualizer = () => {
     const data = soundService.getFrequencyData();
     if (data.length > 0) {
-      // Average low frequencies for bass reaction
       const bassRange = data.slice(0, 10);
       const avgBass = bassRange.reduce((a, b) => a + b, 0) / bassRange.length;
       setBassFactor(avgBass / 255);
@@ -96,12 +145,33 @@ const GameArena: React.FC<GameArenaProps> = ({ rule, leftHand, rightHand, onGame
         spawnTimerRef.current = 0;
       }
 
-      // Sync music intensity with score
       if (scoreRef.current !== lastScoreIntensityRef.current) {
         soundService.updateIntensity(scoreRef.current);
         lastScoreIntensityRef.current = scoreRef.current;
       }
 
+      // Update Trails
+      const leftX = (1 - leftHand.x) * laneWidth;
+      const leftY = leftHand.active ? leftHand.y * window.innerHeight : window.innerHeight - 150;
+      const rightX = (1 - rightHand.x) * laneWidth;
+      const rightY = rightHand.active ? rightHand.y * window.innerHeight : window.innerHeight - 150;
+
+      setLeftTrail(prev => [{ x: leftX, y: leftY, active: leftHand.active }, ...prev].slice(0, 8));
+      setRightTrail(prev => [{ x: rightX, y: rightY, active: rightHand.active }, ...prev].slice(0, 8));
+
+      // Update Particles
+      particlesRef.current = particlesRef.current
+        .map(p => ({
+          ...p,
+          x: p.x + p.vx,
+          y: p.y + p.vy,
+          vy: p.vy + 0.1, // Gravity effect
+          life: p.life - 0.02
+        }))
+        .filter(p => p.life > 0);
+      setParticles([...particlesRef.current]);
+
+      // Update Objects
       const currentObjects = objectsRef.current.map(obj => ({
         ...obj,
         y: obj.y + obj.speed,
@@ -132,6 +202,7 @@ const GameArena: React.FC<GameArenaProps> = ({ rule, leftHand, rightHand, onGame
             scoreRef.current += 10;
             setScore(scoreRef.current);
             soundService.playTargetHit();
+            spawnParticles(obj.x, obj.y, obj.lane === 'left' ? '#3b82f6' : '#f43f5e');
           } else {
             soundService.playObstacleHit();
             setLives(l => {
@@ -211,11 +282,11 @@ const GameArena: React.FC<GameArenaProps> = ({ rule, leftHand, rightHand, onGame
             <span className="text-2xl font-mono font-bold text-blue-100">{score.toString().padStart(5, '0')}</span>
           </div>
           <div className="flex gap-2">
-            {Array.from({ length: 3 }).map((_, i) => (
+            {Array.from({ length: initialLives > 3 ? initialLives : 3 }).map((_, i) => (
               <Heart 
                 key={i} 
                 className={`w-6 h-6 transition-transform duration-100 ${i < lives ? 'text-rose-500 fill-rose-500' : 'text-slate-700'}`} 
-                style={{ transform: i < lives ? `scale(${1 + bassFactor * 0.15})` : 'none' }}
+                style={{ transform: i < lives ? `scale(${1 + bassFactor * 0.15})` : 'none', opacity: (i >= 3 && i >= lives) ? 0 : 1 }}
               />
             ))}
           </div>
@@ -238,6 +309,54 @@ const GameArena: React.FC<GameArenaProps> = ({ rule, leftHand, rightHand, onGame
           </button>
         </div>
       </div>
+
+      {/* Particles */}
+      {particles.map(p => (
+        <div
+          key={p.id}
+          className="absolute rounded-full pointer-events-none"
+          style={{
+            left: p.x,
+            top: p.y,
+            width: p.size,
+            height: p.size,
+            backgroundColor: p.color,
+            opacity: p.life,
+            transform: `translate(-50%, -50%) scale(${p.life})`,
+            boxShadow: `0 0 10px ${p.color}`
+          }}
+        />
+      ))}
+
+      {/* Left Stick Trail */}
+      {!isPaused && leftTrail.map((node, i) => (
+        <div 
+          key={`ltrail-${i}`}
+          className="absolute w-2 h-24 bg-blue-500/30 rounded-full pointer-events-none transition-opacity duration-150"
+          style={{
+            left: node.x,
+            top: node.y - 48,
+            transform: `translateX(-50%) scale(${0.9 - (i * 0.1)})`,
+            opacity: node.active ? 0.3 * (1 - i / leftTrail.length) : 0,
+            boxShadow: `0 0 ${10 - i}px #3b82f6`
+          }}
+        />
+      ))}
+
+      {/* Right Stick Trail */}
+      {!isPaused && rightTrail.map((node, i) => (
+        <div 
+          key={`rtrail-${i}`}
+          className="absolute w-2 h-24 bg-rose-500/30 rounded-full pointer-events-none transition-opacity duration-150"
+          style={{
+            left: laneWidth + node.x,
+            top: node.y - 48,
+            transform: `translateX(-50%) scale(${0.9 - (i * 0.1)})`,
+            opacity: node.active ? 0.3 * (1 - i / rightTrail.length) : 0,
+            boxShadow: `0 0 ${10 - i}px #f43f5e`
+          }}
+        />
+      ))}
 
       {/* Left Stick (Blue) */}
       <div 

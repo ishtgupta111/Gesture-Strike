@@ -7,7 +7,8 @@ ENV PYTHONUNBUFFERED=1
 
 # Install system dependencies for OpenCV, MediaPipe, and PyAutoGUI
 # These include libraries for X11, GL, and screen manipulation
-RUN apt-get update && apt-get install -y \
+RUN export DEBIAN_FRONTEND=noninteractive && \
+    apt-get update && apt-get install -y --no-install-recommends \
     libgl1-mesa-glx \
     libglib2.0-0 \
     libsm6 \
@@ -36,3 +37,4 @@ ENV DISPLAY=:0
 # Command to run the application
 # Replace 'main.py' with the actual entry point of the repo (e.g., Gesture_Controller.py)
 CMD ["python", "main.py"]
+

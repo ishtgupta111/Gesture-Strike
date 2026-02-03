@@ -28,7 +28,9 @@ import {
   ArrowLeftRight,
   ChevronRight,
   Trash2,
-  Home
+  Home,
+  ExternalLink,
+  ShieldCheck
 } from 'lucide-react';
 
 const PROFILES_KEY = 'gesture_striker_profiles';
@@ -56,6 +58,36 @@ const AVATAR_OPTIONS = [
   { id: 'Flame', Icon: Flame },
   { id: 'Skull', Icon: Skull },
 ];
+
+const AdSection: React.FC<{ type: 'horizontal' | 'vertical' | 'mini' }> = ({ type }) => {
+  return (
+    <div className={`relative overflow-hidden bg-white/5 border border-white/10 rounded-2xl backdrop-blur-sm group transition-all hover:bg-white/10 ${
+      type === 'horizontal' ? 'w-full py-4 px-6 flex items-center justify-between gap-4' : 
+      type === 'mini' ? 'py-2 px-4 flex items-center gap-3' :
+      'w-full p-6 flex flex-col gap-4'
+    }`}>
+      <div className="absolute top-0 right-0 p-1.5 flex items-center gap-1 opacity-50">
+        <span className="text-[8px] font-black uppercase tracking-tighter text-slate-500">Ads by Google</span>
+        <Info className="w-2.5 h-2.5 text-slate-500" />
+      </div>
+
+      <div className="flex items-center gap-4">
+        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform">
+          <ShieldCheck className="w-6 h-6" />
+        </div>
+        <div className="text-left">
+          <h4 className="text-sm font-black text-white leading-tight">Elite Striker Gear</h4>
+          <p className="text-[10px] text-slate-400 font-medium">Upgrade your visual tracking speed by 25% today.</p>
+        </div>
+      </div>
+
+      <button className="bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-lg flex items-center gap-2 transition-all active:scale-95 whitespace-nowrap">
+        Learn More
+        <ExternalLink className="w-3 h-3" />
+      </button>
+    </div>
+  );
+};
 
 const App: React.FC = () => {
   const [gameState, setGameState] = useState<'landing' | 'loading' | 'playing' | 'gameover'>('landing');
@@ -251,7 +283,7 @@ const App: React.FC = () => {
       </div>
 
       {gameState === 'landing' && (
-        <div className="flex-1 flex flex-col items-center justify-center z-10 p-6 text-center">
+        <div className="flex-1 flex flex-col items-center justify-center z-10 p-6 text-center overflow-y-auto custom-scrollbar">
           <div className="mb-8 p-10 bg-white/5 rounded-[3rem] backdrop-blur-2xl border border-white/10 shadow-2xl relative w-full max-w-xl animate-in fade-in zoom-in duration-500">
             
             <h1 className="text-5xl font-black mb-10 tracking-tighter bg-gradient-to-r from-blue-400 via-indigo-400 to-rose-400 bg-clip-text text-transparent">
@@ -362,7 +394,7 @@ const App: React.FC = () => {
                       e.stopPropagation();
                       startGame();
                     }}
-                    className="group relative inline-flex items-center justify-center gap-4 bg-white text-slate-950 px-8 py-5 rounded-[1.5rem] font-black text-2xl transition-all hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(255,255,255,0.2)]"
+                    className="group relative inline-flex items-center justify-center gap-4 bg-white text-slate-950 px-8 py-5 rounded-[1.5rem] font-black text-2xl transition-all hover:scale-105 active:scale-95 shadow-[0_0_30px_rgba(255,255,255,0.25)]"
                   >
                     <Play className="w-7 h-7 fill-current" />
                     START MISSION
@@ -386,6 +418,10 @@ const App: React.FC = () => {
                 </div>
               </div>
             )}
+
+            <div className="mt-8 pt-8 border-t border-white/5">
+              <AdSection type="horizontal" />
+            </div>
           </div>
         </div>
       )}
@@ -540,7 +576,7 @@ const App: React.FC = () => {
       )}
 
       {gameState === 'gameover' && (
-        <div className="flex-1 flex flex-col items-center justify-center z-10 p-6">
+        <div className="flex-1 flex flex-col items-center justify-center z-10 p-6 overflow-y-auto custom-scrollbar">
           <div className="bg-slate-900/80 backdrop-blur-2xl p-12 rounded-[3.5rem] border border-white/10 shadow-2xl text-center max-w-sm w-full relative transform animate-in fade-in slide-in-from-bottom-10 duration-700">
             {isNewRecord && (
               <div className="absolute -top-6 left-1/2 -translate-x-1/2 bg-gradient-to-r from-yellow-400 to-orange-500 px-8 py-3 rounded-full shadow-2xl animate-bounce z-20 whitespace-nowrap">
@@ -588,6 +624,10 @@ const App: React.FC = () => {
                 <Home className="w-5 h-5 text-blue-400" />
                 BACK TO MENU
               </button>
+            </div>
+
+            <div className="mt-8">
+              <AdSection type="vertical" />
             </div>
           </div>
         </div>

@@ -17,6 +17,8 @@ const GameArena: React.FC<GameArenaProps> = ({ rule, leftHand, rightHand, onGame
   const [objects, setObjects] = useState<GameObject[]>([]);
   const [isPaused, setIsPaused] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [bassFactor, setBassFactor] = useState(0);
+  
   const requestRef = useRef<number>();
   const lastTimeRef = useRef<number>(0);
   const spawnTimerRef = useRef<number>(0);
@@ -62,12 +64,26 @@ const GameArena: React.FC<GameArenaProps> = ({ rule, leftHand, rightHand, onGame
     objectsRef.current.push(newObj);
   }, [rule, laneWidth]);
 
+  const updateVisualizer = () => {
+    const data = soundService.getFrequencyData();
+    if (data.length > 0) {
+      // Average low frequencies for bass reaction
+      const bassRange = data.slice(0, 10);
+      const avgBass = bassRange.reduce((a, b) => a + b, 0) / bassRange.length;
+      setBassFactor(avgBass / 255);
+    } else {
+      setBassFactor(0);
+    }
+  };
+
   const update = (time: number) => {
     if (isPaused) {
       lastTimeRef.current = time;
       requestRef.current = requestAnimationFrame(update);
       return;
     }
+
+    updateVisualizer();
 
     if (lastTimeRef.current !== undefined) {
       const deltaTime = time - lastTimeRef.current;
@@ -149,8 +165,25 @@ const GameArena: React.FC<GameArenaProps> = ({ rule, leftHand, rightHand, onGame
   }, [leftHand, rightHand, isPaused]);
 
   return (
-    <div className="relative w-full h-full overflow-hidden flex">
-      <div className="absolute left-1/2 top-0 bottom-0 w-1 bg-slate-800/50 shadow-[0_0_15px_rgba(30,41,59,0.5)] z-0" />
+    <div className="relative w-full h-full overflow-hidden flex transition-colors duration-200" style={{
+        backgroundColor: `rgba(15, 23, 42, ${1 - bassFactor * 0.2})`
+    }}>
+      {/* Background Visualizer Glow */}
+      <div 
+        className="absolute inset-0 pointer-events-none opacity-20 transition-transform duration-100"
+        style={{
+            background: `radial-gradient(circle at 50% 50%, rgba(59, 130, 246, ${bassFactor * 0.5}), transparent 70%)`,
+            transform: `scale(${1 + bassFactor * 0.1})`
+        }}
+      />
+
+      <div 
+        className="absolute left-1/2 top-0 bottom-0 w-1 bg-slate-800/50 shadow-[0_0_15px_rgba(30,41,59,0.5)] z-0" 
+        style={{
+            boxShadow: `0 0 ${15 + bassFactor * 30}px rgba(59, 130, 246, ${0.2 + bassFactor * 0.8})`,
+            backgroundColor: bassFactor > 0.5 ? '#3b82f6' : 'rgba(30, 41, 59, 0.5)'
+        }}
+      />
 
       {/* Rules Display */}
       <div className="absolute top-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 z-20">
@@ -174,14 +207,15 @@ const GameArena: React.FC<GameArenaProps> = ({ rule, leftHand, rightHand, onGame
       <div className="absolute top-6 left-6 right-6 flex justify-between items-start z-20">
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-3 bg-blue-600/20 px-4 py-2 rounded-lg border border-blue-500/30">
-            <Zap className="w-5 h-5 text-blue-400 fill-blue-400" />
+            <Zap className={`w-5 h-5 text-blue-400 fill-blue-400 transition-transform duration-75`} style={{ transform: `scale(${1 + bassFactor * 0.4})` }} />
             <span className="text-2xl font-mono font-bold text-blue-100">{score.toString().padStart(5, '0')}</span>
           </div>
           <div className="flex gap-2">
             {Array.from({ length: 3 }).map((_, i) => (
               <Heart 
                 key={i} 
-                className={`w-6 h-6 ${i < lives ? 'text-rose-500 fill-rose-500' : 'text-slate-700'}`} 
+                className={`w-6 h-6 transition-transform duration-100 ${i < lives ? 'text-rose-500 fill-rose-500' : 'text-slate-700'}`} 
+                style={{ transform: i < lives ? `scale(${1 + bassFactor * 0.15})` : 'none' }}
               />
             ))}
           </div>
@@ -211,8 +245,9 @@ const GameArena: React.FC<GameArenaProps> = ({ rule, leftHand, rightHand, onGame
         style={{
           left: (1 - leftHand.x) * laneWidth,
           top: (leftHand.active ? leftHand.y * window.innerHeight : window.innerHeight - 150) - 48,
-          transform: 'translateX(-50%)',
-          opacity: isPaused ? 0.3 : 1
+          transform: `translateX(-50%) scale(${1 + bassFactor * 0.2})`,
+          opacity: isPaused ? 0.3 : 1,
+          boxShadow: `0 0 ${20 + bassFactor * 40}px #3b82f6`
         }}
       />
       
@@ -222,8 +257,9 @@ const GameArena: React.FC<GameArenaProps> = ({ rule, leftHand, rightHand, onGame
         style={{
           left: laneWidth + ((1 - rightHand.x) * laneWidth),
           top: (rightHand.active ? rightHand.y * window.innerHeight : window.innerHeight - 150) - 48,
-          transform: 'translateX(-50%)',
-          opacity: isPaused ? 0.3 : 1
+          transform: `translateX(-50%) scale(${1 + bassFactor * 0.2})`,
+          opacity: isPaused ? 0.3 : 1,
+          boxShadow: `0 0 ${20 + bassFactor * 40}px #f43f5e`
         }}
       />
 
@@ -235,7 +271,7 @@ const GameArena: React.FC<GameArenaProps> = ({ rule, leftHand, rightHand, onGame
           style={{
             left: obj.x,
             top: obj.y,
-            transform: 'translate(-50%, -50%)',
+            transform: `translate(-50%, -50%) scale(${1 + bassFactor * 0.1})`,
             opacity: isPaused ? 0.2 : 1
           }}
         >

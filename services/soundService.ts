@@ -2,6 +2,7 @@
 class SoundService {
   private ctx: AudioContext | null = null;
   private musicGain: GainNode | null = null;
+  private analyser: AnalyserNode | null = null;
   private bgmTimeout: any = null;
   private isMusicMuted: boolean = false;
   private intensityScore: number = 0;
@@ -16,9 +17,23 @@ class SoundService {
     }
     if (!this.musicGain) {
       this.musicGain = this.ctx.createGain();
-      this.musicGain.connect(this.ctx.destination);
+      
+      // Setup Analyser
+      this.analyser = this.ctx.createAnalyser();
+      this.analyser.fftSize = 256;
+      
+      this.musicGain.connect(this.analyser);
+      this.analyser.connect(this.ctx.destination);
+      
       this.musicGain.gain.setValueAtTime(this.isMusicMuted ? 0 : 0.05, this.ctx.currentTime);
     }
+  }
+
+  getFrequencyData(): Uint8Array {
+    if (!this.analyser) return new Uint8Array(0);
+    const dataArray = new Uint8Array(this.analyser.frequencyBinCount);
+    this.analyser.getByteFrequencyData(dataArray);
+    return dataArray;
   }
 
   updateIntensity(score: number) {

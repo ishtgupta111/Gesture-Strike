@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { generateGameRule } from './services/geminiService';
 import { GameRule, HandPosition } from './types';
@@ -32,7 +31,8 @@ import {
   ExternalLink,
   ShieldCheck,
   Video,
-  Loader2
+  Loader2,
+  CheckCircle2
 } from 'lucide-react';
 
 const PROFILES_KEY = 'gesture_striker_profiles';
@@ -167,6 +167,14 @@ const App: React.FC = () => {
     if (activeName) {
       localStorage.setItem(LAST_USER_KEY, activeName);
       loadProfile(activeName);
+      
+      // Save profile if new
+      const profiles: UserProfiles = JSON.parse(localStorage.getItem(PROFILES_KEY) || '{}');
+      if (!profiles[activeName]) {
+        profiles[activeName] = { score: 0, icon: userIcon };
+        localStorage.setItem(PROFILES_KEY, JSON.stringify(profiles));
+      }
+      
       setIsEditingProfile(false);
       refreshProfileList();
       soundService.playBlip(false);
@@ -419,7 +427,7 @@ const App: React.FC = () => {
                     </div>
                     <div className="text-left flex-1">
                       <p className="text-[10px] font-black uppercase text-slate-500 tracking-[0.2em] mb-1">Active Striker</p>
-                      <h2 className="text-3xl font-black text-white tracking-tight">{userName}</h2>
+                      <h2 className="text-3xl font-black text-white tracking-tight">{userName || DEFAULT_NAME}</h2>
                       <div className="flex items-center gap-2 mt-2 text-yellow-500">
                         <Trophy className="w-3.5 h-3.5" />
                         <span className="text-xs font-bold uppercase tracking-widest">Personal Best: {highScore}</span>
@@ -430,7 +438,7 @@ const App: React.FC = () => {
                         e.stopPropagation();
                         setShowProfileSelector(true);
                       }}
-                      className="p-3 rounded-xl bg-blue-600/10 hover:bg-blue-600 text-blue-400 hover:text-white transition-all border border-blue-500/20 shadow-lg"
+                      className="p-3 rounded-xl bg-blue-600/10 hover:bg-blue-600 text-blue-400 hover:text-white transition-all border border-blue-500/20 shadow-lg active:scale-90"
                       title="Switch Striker"
                     >
                       <ArrowLeftRight className="w-5 h-5" />
@@ -476,66 +484,84 @@ const App: React.FC = () => {
         </div>
       )}
 
+      {/* Enhanced Profile Selector Overlay */}
       {showProfileSelector && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-black/70 backdrop-blur-xl animate-in fade-in duration-300" onClick={() => setShowProfileSelector(false)}>
-          <div className="bg-slate-900 border border-white/10 rounded-[3rem] w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in duration-300" onClick={e => e.stopPropagation()}>
+        <div 
+          className="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-black/80 backdrop-blur-xl animate-in fade-in duration-300" 
+          onClick={() => setShowProfileSelector(false)}
+        >
+          <div 
+            className="bg-slate-900 border border-white/10 rounded-[2.5rem] w-full max-w-md shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden animate-in zoom-in slide-in-from-bottom-10 duration-300" 
+            onClick={e => e.stopPropagation()}
+          >
             <div className="p-8 border-b border-white/5 bg-slate-950/50 flex justify-between items-center">
               <div>
-                <h3 className="text-2xl font-black text-white">Select Striker</h3>
-                <p className="text-slate-500 text-xs font-bold uppercase tracking-widest mt-1">Found {availableProfiles.length} Profiles</p>
+                <h3 className="text-2xl font-black text-white tracking-tight">Select Striker</h3>
+                <p className="text-slate-500 text-[10px] font-black uppercase tracking-widest mt-1">Deploying from {availableProfiles.length} active units</p>
               </div>
-              <button onClick={() => setShowProfileSelector(false)} className="p-2 rounded-full hover:bg-white/5 transition-colors">
-                <X className="w-6 h-6 text-slate-400" />
+              <button 
+                onClick={() => setShowProfileSelector(false)} 
+                className="p-2 rounded-full hover:bg-white/5 text-slate-400 transition-colors"
+              >
+                <X className="w-6 h-6" />
               </button>
             </div>
             
-            <div className="max-h-[50vh] overflow-y-auto p-4 space-y-3 custom-scrollbar">
+            <div className="max-h-[45vh] overflow-y-auto p-6 space-y-3 custom-scrollbar">
               {availableProfiles.length === 0 ? (
-                <div className="py-12 text-center">
-                  <Ghost className="w-12 h-12 text-slate-700 mx-auto mb-4 opacity-20" />
-                  <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">No saved strikers found</p>
+                <div className="py-12 text-center opacity-40">
+                  <Ghost className="w-16 h-16 mx-auto mb-4" />
+                  <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">No strikers detected in database</p>
                 </div>
               ) : (
                 availableProfiles.map(({ name, data }) => {
                   const ProfileIcon = getAvatarById(data.icon);
                   const isActive = name === userName;
                   return (
-                    <button
+                    <div 
                       key={name}
-                      onClick={() => selectProfile(name)}
-                      className={`w-full text-left group flex items-center gap-4 p-4 rounded-2xl border transition-all duration-200 ${
-                        isActive 
-                          ? 'bg-blue-600 border-blue-400 shadow-lg shadow-blue-900/20' 
-                          : 'bg-white/5 border-white/5 hover:border-white/20 hover:bg-white/10'
-                      }`}
+                      className="group relative"
                     >
-                      <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-colors ${
-                        isActive ? 'bg-white/20 text-white' : 'bg-slate-800 text-slate-400 group-hover:text-blue-400'
-                      }`}>
-                        <ProfileIcon className="w-6 h-6" />
-                      </div>
-                      <div className="flex-1">
-                        <h4 className={`font-black text-lg leading-tight ${isActive ? 'text-white' : 'text-slate-300'}`}>{name}</h4>
-                        <div className={`flex items-center gap-1.5 mt-0.5 ${isActive ? 'text-blue-100' : 'text-slate-500'}`}>
-                          <Trophy className="w-3 h-3" />
-                          <span className="text-[10px] font-bold uppercase tracking-tighter">Best: {data.score}</span>
+                      <button
+                        onClick={() => selectProfile(name)}
+                        className={`w-full text-left flex items-center gap-4 p-4 rounded-2xl border transition-all duration-300 ${
+                          isActive 
+                            ? 'bg-blue-600/20 border-blue-500/50 shadow-[0_0_20px_rgba(59,130,246,0.1)]' 
+                            : 'bg-white/5 border-white/5 hover:border-white/20 hover:bg-white/10'
+                        }`}
+                      >
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${
+                          isActive ? 'bg-blue-600 text-white scale-110' : 'bg-slate-800 text-slate-500 group-hover:text-blue-400'
+                        }`}>
+                          <ProfileIcon className="w-6 h-6" />
                         </div>
-                      </div>
-                      {isActive ? (
-                        <div className="bg-white/20 px-2 py-1 rounded text-[8px] font-black uppercase tracking-widest">Active</div>
-                      ) : (
-                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button 
-                                onClick={(e) => deleteProfile(name, e)}
-                                className="p-2 rounded-lg bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white transition-all"
-                                title="Delete Profile"
-                            >
-                                <Trash2 className="w-4 h-4" />
-                            </button>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <h4 className={`font-black text-lg leading-tight ${isActive ? 'text-white' : 'text-slate-300'}`}>{name}</h4>
+                            {isActive && <CheckCircle2 className="w-4 h-4 text-blue-400" />}
+                          </div>
+                          <div className={`flex items-center gap-1.5 mt-0.5 ${isActive ? 'text-blue-300' : 'text-slate-500'}`}>
+                            <Trophy className="w-3 h-3" />
+                            <span className="text-[10px] font-bold uppercase tracking-tighter">Record: {data.score}</span>
+                          </div>
+                        </div>
+                        {!isActive && (
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity">
                             <ChevronRight className="w-6 h-6 text-slate-600" />
-                        </div>
+                          </div>
+                        )}
+                      </button>
+                      
+                      {!isActive && (
+                        <button 
+                          onClick={(e) => deleteProfile(name, e)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-xl opacity-0 group-hover:opacity-100 bg-rose-500/10 hover:bg-rose-600 text-rose-500 hover:text-white transition-all shadow-lg active:scale-90"
+                          title="Erase Profile"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       )}
-                    </button>
+                    </div>
                   );
                 })
               )}
@@ -544,10 +570,12 @@ const App: React.FC = () => {
             <div className="p-6 border-t border-white/5 bg-slate-950/30">
               <button
                 onClick={switchToNewProfile}
-                className="w-full flex items-center justify-center gap-3 bg-white/10 hover:bg-white/20 text-white font-black py-4 rounded-2xl border border-white/10 transition-all active:scale-95"
+                className="w-full flex items-center justify-center gap-3 bg-white/5 hover:bg-white/10 text-white font-black py-4 rounded-2xl border border-white/10 transition-all active:scale-95 group"
               >
-                <UserPlus className="w-5 h-5" />
-                CREATE NEW STRIKER
+                <div className="p-1 bg-white/10 rounded-lg group-hover:bg-blue-500 transition-colors">
+                  <UserPlus className="w-4 h-4" />
+                </div>
+                COMMISSION NEW STRIKER
               </button>
             </div>
           </div>
